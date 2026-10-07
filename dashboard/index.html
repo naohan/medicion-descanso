@@ -201,6 +201,18 @@ select:focus, input:focus { border-color: var(--accent); }
   margin-bottom: 12px;
 }
 .chart-wrap { position: relative; height: 200px; }
+.chart-empty {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted2); font-size: .8rem; pointer-events: none;
+}
+.stale-banner {
+  margin: 10px 0 0; padding: 10px 14px;
+  border: 1px solid rgba(251,191,36,.4); border-radius: 10px;
+  background: rgba(251,191,36,.08); color: var(--yellow);
+  font-size: .82rem;
+}
+.stale-banner[hidden] { display: none; }
 
 /* ── Timeline ────────────────────────────────────────────── */
 .timeline-card {
@@ -381,6 +393,8 @@ input[type=password] {
     <button class="btn" id="range-now">Ahora</button>
     <button class="btn btn-refresh" onclick="loadAll()">↺ Actualizar</button>
   </div>
+
+  <div class="stale-banner" id="stale-banner" hidden></div>
 
   <div class="config-bar">
     <label style="font-size:.78rem;color:var(--muted)">API</label>
@@ -589,6 +603,7 @@ let device = '';
 let hoursBack = 24;
 let rangeEnd = null;          // null = el rango termina ahora
 let lastSampleAt = null;
+let forceNow = false;         // true = el usuario pidió "Ahora" aunque no haya datos recientes
 let chartHr = null, chartHrv = null, chartSteps = null, chartConf = null, chartRaw = null;
 let autoRefreshTimer = null;
 
@@ -599,13 +614,15 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.btn[data-h]').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       hoursBack = +b.dataset.h;
+      forceNow = false;
       loadAll();
     });
   });
   document.getElementById('range-prev').addEventListener('click', () => shiftRange(-1));
   document.getElementById('range-next').addEventListener('click', () => shiftRange(1));
-  document.getElementById('range-now').addEventListener('click', () => { rangeEnd = null; loadAll(); });
+  document.getElementById('range-now').addEventListener('click', () => { rangeEnd = null; forceNow = true; loadAll(); });
   document.getElementById('range-latest').addEventListener('click', () => {
+    forceNow = false;
     if (lastSampleAt) { rangeEnd = new Date(lastSampleAt); loadAll(); }
   });
   document.getElementById('device-select').addEventListener('change', e => {
@@ -636,6 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function shiftRange(dir) {
   const end = (rangeEnd || new Date()).getTime() + dir * hoursBack * 3600_000;
   rangeEnd = end >= Date.now() ? null : new Date(end);
+  if (!rangeEnd) forceNow = true;
   loadAll();
 }
 
@@ -697,6 +715,13 @@ async function loadAll() {
       ...chunks,
     ]);
     lastSampleAt = stats.last_sample_at;
+    updateStaleBanner(lastSampleAt);
+    // Si el rango "hasta ahora" queda después del último dato (p. ej. al cambiar a 24 h o semana),
+    // se mostrarían cuadros vacíos: se ancla al último dato salvo que el usuario pidiera "Ahora"
+    if (!forceNow && !rangeEnd && lastSampleAt && Date.parse(lastSampleAt) < fromDate.getTime()) {
+      rangeEnd = new Date(lastSampleAt);
+      return loadAll();
+    }
     const byId = new Map();
     winChunks.forEach(c => (c.windows || []).forEach(w => byId.set(w.id, w)));
     // El backend guarda ventanas repetidas cuando el reloj reenvía lotes
@@ -716,6 +741,9 @@ async function loadAll() {
     drawStepsChart(pts);
     drawConfChart(pts);
     drawWeekTable(days);
+    markEmpty('chart-raw', !(series.points || []).length);
+    ['chart-hr', 'chart-steps', 'chart-conf'].forEach(id => markEmpty(id, !pts.length));
+    markEmpty('chart-hrv', !pts.some(p => p.hrv != null));
     document.getElementById('week-title').textContent =
       `Resumen del rango · ${fmtDay(fromDay)} → ${fmtDay(toDay)}`;
     const first = stats.first_sample_at ? fmtDateTime(stats.first_sample_at) : '—';
@@ -1169,6 +1197,30 @@ async function loadDiagnostics() {
       : 'Sin huecos mayores a 30 minutos.';
   } catch (e) {
     summaryEl.textContent = 'Error analizando historial: ' + e.message;
+  }
+}
+
+/* ── Avisos ───────────────────────────────────────────────── */
+function updateStaleBanner(lastIso) {
+  const el = document.getElementById('stale-banner');
+  const ageH = lastIso ? (Date.now() - Date.parse(lastIso)) / 3600_000 : null;
+  if (ageH == null || ageH < 2) { el.hidden = true; return; }
+  const ago = ageH >= 48 ? `${Math.floor(ageH / 24)} días` : `${Math.floor(ageH)} h`;
+  el.textContent = `⚠ El reloj no envía datos desde ${fmtDateTime(lastIso)} (hace ${ago}). ` +
+    `Revisa la app del reloj. Usa "Últimos datos" para ver lo último que llegó.`;
+  el.hidden = false;
+}
+
+function markEmpty(canvasId, empty) {
+  const wrap = document.getElementById(canvasId).parentElement;
+  let msg = wrap.querySelector('.chart-empty');
+  if (empty && !msg) {
+    msg = document.createElement('div');
+    msg.className = 'chart-empty';
+    msg.textContent = 'Sin datos en este rango';
+    wrap.appendChild(msg);
+  } else if (!empty && msg) {
+    msg.remove();
   }
 }
 
