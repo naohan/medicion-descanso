@@ -8,12 +8,13 @@ Documentación interactiva en:
     http://localhost:8000/docs      (Swagger UI)
     http://localhost:8000/redoc     (ReDoc)
 """
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
+from auth import require_api_key
 from routers import ingest, query
 
 # ---------------------------------------------------------------------------
@@ -39,8 +40,8 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
-app.include_router(ingest.router)
-app.include_router(query.router)
+app.include_router(ingest.router, dependencies=[Depends(require_api_key)])
+app.include_router(query.router, dependencies=[Depends(require_api_key)])
 
 # ---------------------------------------------------------------------------
 # Sirve el dashboard estático desde ../dashboard/

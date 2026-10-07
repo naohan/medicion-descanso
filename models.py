@@ -47,6 +47,10 @@ class RawSample(Base):
     accuracy = Column(String(32), nullable=True)     # HIGH / MEDIUM / LOW
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
+    __table_args__ = (
+        UniqueConstraint("device_id", "recorded_at", name="uq_raw_device_time"),
+    )
+
 
 # ---------------------------------------------------------------------------
 # 2. Ventanas de 1 minuto (procesadas en el reloj)
@@ -77,10 +81,15 @@ class SleepWindow(Base):
 
     # Estado
     activity_state = Column(String(32), nullable=True)    # ASLEEP/AWAKE/PASSIVE
-    sleep_state = Column(String(16), nullable=True)        # SLEEPING/AWAKE/UNKNOWN
+    sleep_state = Column(String(16), nullable=True)        # corregido por sleep_logic
+    device_sleep_state = Column(String(16), nullable=True) # tal como lo envió el reloj
     confidence = Column(Float, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("device_id", "window_start", name="uq_window_device_start"),
+    )
 
 
 # ---------------------------------------------------------------------------

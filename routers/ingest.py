@@ -7,7 +7,6 @@ Rutas:
   POST /api/sessions         → sesión de sueño completa
 """
 import math
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from database import get_db
 import models
 import schemas
+import sleep_logic
 
 router = APIRouter(prefix="/api", tags=["ingest"])
 
@@ -59,24 +59,28 @@ def ingest_samples(payload: schemas.RawSampleBatchIn, db: Session = Depends(get_
     if not payload.samples:
         raise HTTPException(status_code=422, detail="Lista de muestras vacía")
 
-    rows = []
-    for s in payload.samples:
-        rows.append(
-            models.RawSample(
-                device_id=s.device_id,
-                recorded_at=s.recorded_at,
-                bpm=s.bpm,
-                rr_estimated_ms=_compute_rr(s.bpm),
-                accel_magnitude=s.accel_magnitude,
-                gyro_magnitude=s.gyro_magnitude,
-                steps_delta=s.steps_delta or 0,
-                accuracy=s.accuracy,
-            )
+    rows = [
+        dict(
+            device_id=s.device_id,
+            recorded_at=s.recorded_at,
+            bpm=s.bpm,
+            rr_estimated_ms=_compute_rr(s.bpm),
+            accel_magnitude=s.accel_magnitude,
+            gyro_magnitude=s.gyro_magnitude,
+            steps_delta=s.steps_delta or 0,
+            accuracy=s.accuracy,
         )
-
-    db.bulk_save_objects(rows)
+        for s in payload.samples
+    ]
+    # El reloj reenvía lotes cuando no recibe respuesta: lo ya guardado se ignora
+    stmt = (
+        pg_insert(models.RawSample)
+        .values(rows)
+        .on_conflict_do_nothing(constraint="uq_raw_device_time")
+    )
+    inserted = db.execute(stmt).rowcount
     db.commit()
-    return schemas.IngestResponse(inserted=len(rows))
+    return schemas.IngestResponse(inserted=inserted, duplicates=len(rows) - inserted)
 
 
 # ---------------------------------------------------------------------------
@@ -91,34 +95,39 @@ def ingest_windows(payload: schemas.SleepWindowBatchIn, db: Session = Depends(ge
     if not payload.windows:
         raise HTTPException(status_code=422, detail="Lista de ventanas vacía")
 
-    rows = []
-    for w in payload.windows:
-        rows.append(
-            models.SleepWindow(
-                device_id=w.device_id,
-                window_start=w.window_start,
-                window_end=w.window_end,
-                avg_hr=w.avg_hr,
-                min_hr=w.min_hr,
-                max_hr=w.max_hr,
-                std_hr=w.std_hr,
-                hrv_rmssd_estimated=w.hrv_rmssd_estimated,
-                sample_count=w.sample_count or 0,
-                steps=w.steps or 0,
-                accel_mean=w.accel_mean,
-                activity_state=w.activity_state,
-                sleep_state=w.sleep_state,
-                confidence=w.confidence,
-            )
+    rows = [
+        dict(
+            device_id=w.device_id,
+            window_start=w.window_start,
+            window_end=w.window_end,
+            avg_hr=w.avg_hr,
+            min_hr=w.min_hr,
+            max_hr=w.max_hr,
+            std_hr=w.std_hr,
+            hrv_rmssd_estimated=w.hrv_rmssd_estimated,
+            sample_count=w.sample_count or 0,
+            steps=w.steps or 0,
+            accel_mean=w.accel_mean,
+            activity_state=w.activity_state,
+            sleep_state=sleep_logic.corrected_state(w.sleep_state, w.steps, w.avg_hr),
+            device_sleep_state=w.sleep_state,
+            confidence=w.confidence,
         )
+        for w in payload.windows
+    ]
+    stmt = (
+        pg_insert(models.SleepWindow)
+        .values(rows)
+        .on_conflict_do_nothing(constraint="uq_window_device_start")
+    )
+    inserted = db.execute(stmt).rowcount
 
-    db.bulk_save_objects(rows)
+    for device_id in {w.device_id for w in payload.windows}:
+        starts = [w.window_start for w in payload.windows if w.device_id == device_id]
+        sleep_logic.recompute_range(db, device_id, min(starts), max(starts))
     db.commit()
 
-    # Actualiza el resumen diario automáticamente
-    _upsert_daily_summary(db, payload.windows)
-
-    return schemas.IngestResponse(inserted=len(rows))
+    return schemas.IngestResponse(inserted=inserted, duplicates=len(rows) - inserted)
 
 
 # ---------------------------------------------------------------------------
@@ -146,58 +155,3 @@ def ingest_session(payload: schemas.SleepSessionIn, db: Session = Depends(get_db
     db.add(row)
     db.commit()
     return schemas.IngestResponse(inserted=1)
-
-
-# ---------------------------------------------------------------------------
-# Helper: actualiza daily_summary al insertar ventanas
-# ---------------------------------------------------------------------------
-def _upsert_daily_summary(db: Session, windows: list[schemas.SleepWindowIn]):
-    """
-    Recalcula el resumen del día para cada (device_id, fecha) presente
-    en las ventanas recibidas. Usa INSERT … ON CONFLICT UPDATE de PostgreSQL.
-    """
-    # Agrupa por (device_id, date)
-    from collections import defaultdict
-    groups: dict[tuple[str, date], list[schemas.SleepWindowIn]] = defaultdict(list)
-    for w in windows:
-        day = w.window_start.date()
-        groups[(w.device_id, day)].append(w)
-
-    for (device_id, day), ws in groups.items():
-        hr_vals = [w.avg_hr for w in ws if w.avg_hr]
-        hrv_vals = [w.hrv_rmssd_estimated for w in ws if w.hrv_rmssd_estimated]
-        steps_total = sum(w.steps or 0 for w in ws)
-        sleep_min = sum(1 for w in ws if w.sleep_state == "SLEEPING")
-
-        avg_hr = round(sum(hr_vals) / len(hr_vals), 2) if hr_vals else None
-        hrv_avg = round(sum(hrv_vals) / len(hrv_vals), 2) if hrv_vals else None
-        hrv_min = round(min(hrv_vals), 2) if hrv_vals else None
-        resting_hr = round(min(hr_vals), 2) if hr_vals else None
-
-        stmt = (
-            pg_insert(models.DailySummary)
-            .values(
-                device_id=device_id,
-                summary_date=day,
-                sleep_minutes=sleep_min,
-                resting_hr=resting_hr,
-                avg_hr_day=avg_hr,
-                hrv_avg=hrv_avg,
-                hrv_min=hrv_min,
-                steps_total=steps_total,
-            )
-            .on_conflict_do_update(
-                constraint="uq_daily_device_date",
-                set_={
-                    "sleep_minutes": sleep_min,
-                    "resting_hr": resting_hr,
-                    "avg_hr_day": avg_hr,
-                    "hrv_avg": hrv_avg,
-                    "hrv_min": hrv_min,
-                    "steps_total": steps_total,
-                },
-            )
-        )
-        db.execute(stmt)
-
-    db.commit()

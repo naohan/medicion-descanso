@@ -22,8 +22,8 @@ class RawSampleIn(BaseModel):
 
 
 class RawSampleBatchIn(BaseModel):
-    """El reloj puede enviar hasta 500 muestras en un solo POST."""
-    samples: list[RawSampleIn] = Field(..., max_length=500)
+    """El reloj puede enviar hasta 1000 muestras por petición."""
+    samples: list[RawSampleIn] = Field(..., max_length=1000)
 
 
 # ---------------------------------------------------------------------------
@@ -75,4 +75,5 @@ class SleepSessionIn(BaseModel):
 # ---------------------------------------------------------------------------
 class IngestResponse(BaseModel):
     inserted: int
+    duplicates: int = 0                   # filas ya guardadas que se ignoraron
     message: str = "OK"

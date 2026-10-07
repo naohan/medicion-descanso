@@ -6,8 +6,13 @@ ENV/
 
 # Variables de entorno (secretos)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Copias de la base de datos (contienen datos de salud)
+*.dump
+*.sql
+*.backup
 
 # Python
 __pycache__/
@@ -40,6 +45,7 @@ dmypy.json
 # IDEs y editores
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~
