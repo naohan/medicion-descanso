@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Serenity · Sueño &amp; Fatiga</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ── Variables ──────────────────────────────────────────── */
+:root {
+  --bg:       #0b0d14;
+  --surface:  #13151f;
+  --surface2: #1a1d2b;
+  --border:   #252836;
+  --border2:  #2f3347;
+  --accent:   #6c7fff;
+  --accent2:  #818cf8;
+  --green:    #4ade80;
+  --yellow:   #fbbf24;
+  --red:      #f87171;
+  --purple:   #a78bfa;
+  --text:     #e2e8f0;
+  --muted:    #8892a4;
+  --muted2:   #4a5568;
+  --radius:   14px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.page { max-width: 1280px; margin: 0 auto; padding: 0 20px 40px; }
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg);
+  backdrop-filter: blur(12px);
+}
+.logo { width: 36px; height: 36px; flex-shrink: 0; }
+header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+header h1 span { color: var(--accent); }
+.header-right {
+  margin-left: auto;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted2);
+  transition: background .4s;
+}
+.status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
+#last-update { font-size: .75rem; color: var(--muted); }
+
+/* ── Controls ────────────────────────────────────────────── */
+.controls {
+  display: flex; gap: 10px; align-items: center;
+  padding: 14px 0 10px; flex-wrap: wrap;
+}
+.controls label { font-size: .8rem; color: var(--muted); }
+select, input[type=text] {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: .85rem;
+  outline: none;
+  transition: border-color .2s;
+}
+select:focus, input:focus { border-color: var(--accent); }
+.btn-group { display: flex; gap: 4px; }
+.btn {
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn:hover { border-color: var(--accent); color: var(--text); }
+.btn.active { border-color: var(--accent); color: var(--accent); background: rgba(108,127,255,.1); }
+.btn-refresh {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+  font-weight: 600;
+}
+.btn-refresh:hover { background: var(--accent2); color: #fff; }
+.btn:disabled { opacity: .35; cursor: default; border-color: var(--border); color: var(--muted); }
+.range-label {
+  display: flex; align-items: center;
+  padding: 0 12px; min-width: 190px; justify-content: center;
+  font-size: .82rem; color: var(--text);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+}
+
+/* ── Score Ring ──────────────────────────────────────────── */
+.top-section {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 16px;
+  margin: 8px 0 16px;
+}
+@media (max-width: 680px) { .top-section { grid-template-columns: 1fr; } }
+
+.score-ring-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ring-wrap { position: relative; width: 120px; height: 120px; }
+.ring-wrap svg { transform: rotate(-90deg); }
+.ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.ring-score { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+.ring-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.score-ring-card h3 { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.score-state {
+  font-size: .9rem; font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(108,127,255,.12);
+  color: var(--accent);
+}
+
+/* ── KPI Cards ───────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.kpi:hover { border-color: var(--border2); }
+.kpi::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--kpi-color, var(--accent));
+  opacity: .7;
+}
+.kpi-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1; color: var(--kpi-color, var(--text)); }
+.kpi-sub { font-size: .7rem; color: var(--muted2); margin-top: 4px; }
+
+/* ── Section titles ──────────────────────────────────────── */
+.section-title {
+  font-size: .72rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin: 20px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ── Chart cards ─────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.chart-card h3 {
+  font-size: .78rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 12px;
+}
+.chart-wrap { position: relative; height: 200px; }
+
+/* ── Timeline ────────────────────────────────────────────── */
+.timeline-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 14px 0;
+}
+.timeline-card h3 {
+  font-size: .78rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 12px;
+}
+.timeline-bar {
+  display: flex; height: 28px;
+  border-radius: 6px; overflow: hidden;
+  gap: 1px; background: var(--bg);
+}
+.tl-seg {
+  flex: 1; min-width: 2px;
+  cursor: pointer;
+  transition: opacity .1s;
+  position: relative;
+}
+.tl-seg:hover { opacity: .8; }
+.tl-seg:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); font-size: 10px;
+  padding: 4px 8px; border-radius: 6px;
+  white-space: nowrap; z-index: 20;
+  pointer-events: none;
+}
+.tl-seg.SLEEPING  { background: var(--accent); }
+.tl-seg.AWAKE     { background: var(--yellow); }
+.tl-seg.UNKNOWN   { background: var(--border); }
+.timeline-axis {
+  display: flex; justify-content: space-between;
+  margin-top: 6px; font-size: .65rem; color: var(--muted2);
+}
+.tl-legend {
+  display: flex; gap: 16px; margin-top: 10px; font-size: .72rem; color: var(--muted);
+}
+.tl-legend span { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── Week summary table ──────────────────────────────────── */
+.week-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.week-card h3 {
+  font-size: .78rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 12px;
+}
+table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+th {
+  text-align: left; font-size: .68rem;
+  color: var(--muted2); text-transform: uppercase; letter-spacing: .06em;
+  padding: 6px 10px; border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+td {
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: .7rem; font-weight: 600;
+}
+.badge-green  { background: rgba(74,222,128,.15); color: var(--green); }
+.badge-yellow { background: rgba(251,191,36,.15);  color: var(--yellow); }
+.badge-red    { background: rgba(248,113,113,.15); color: var(--red); }
+.badge-gray   { background: rgba(100,116,139,.15); color: var(--muted); }
+
+/* ── Diagnóstico historial ───────────────────────────────── */
+.diag-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.diag-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.diag-head h3 {
+  font-size: .78rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.diag-head .btn { margin-left: auto; }
+.diag-summary { font-size: .8rem; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
+.diag-summary b { color: var(--text); }
+.heatmap {
+  display: grid;
+  grid-template-columns: 96px repeat(24, minmax(14px, 1fr));
+  gap: 2px;
+  font-size: .65rem;
+}
+.hm-label { color: var(--muted); display: flex; align-items: center; }
+.hm-hour { color: var(--muted2); text-align: center; }
+.hm-cell { height: 22px; border-radius: 3px; background: var(--surface2); position: relative; }
+.hm-cell.full     { background: rgba(74,222,128,.75); }
+.hm-cell.partial  { background: rgba(251,191,36,.7); }
+.hm-cell.raw-only { background: rgba(108,127,255,.6); }
+.hm-cell.dup      { box-shadow: inset 0 0 0 2px var(--red); }
+.hm-cell:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); font-size: 10px; line-height: 1.5;
+  padding: 6px 8px; border-radius: 6px;
+  white-space: pre; z-index: 20;
+  pointer-events: none;
+}
+.num-bad { color: var(--red); font-weight: 600; }
+.gap-list { font-size: .78rem; color: var(--muted); display: grid; gap: 4px; }
+
+/* ── API config modal ────────────────────────────────────── */
+.config-bar {
+  display: flex; gap: 10px; align-items: center;
+  padding: 10px 0 0;
+}
+#api-input, #api-key-input { width: 220px; }
+input[type=password] {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border2); border-radius: 8px;
+  padding: 7px 12px; font-size: .85rem; outline: none;
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────── -->
+<header>
+  <svg class="logo" viewBox="0 0 36 36" fill="none">
+    <circle cx="18" cy="18" r="18" fill="rgba(108,127,255,.12)"/>
+    <path d="M8 18 Q12 10 18 18 Q24 26 28 18" stroke="#6c7fff" stroke-width="2.2"
+          fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="18" cy="18" r="3" fill="#6c7fff" opacity=".4"/>
+  </svg>
+  <div>
+    <h1>Serenity · <span>Sueño &amp; Fatiga</span></h1>
+  </div>
+  <div class="header-right">
+    <div class="status-dot" id="dot"></div>
+    <span id="last-update">Conectando…</span>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ── CONTROLS ──────────────────────────────────────────────────── -->
+  <div class="controls">
+    <label>Dispositivo</label>
+    <select id="device-select"><option value="">— seleccionar —</option></select>
+    <label>Rango</label>
+    <div class="btn-group">
+      <button class="btn" data-h="14">Anoche→hoy</button>
+      <button class="btn active" data-h="24">24 h</button>
+      <button class="btn" data-h="72">3 días</button>
+      <button class="btn" data-h="168">Semana</button>
+      <button class="btn" data-h="720">Mes</button>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="range-prev" title="Periodo anterior">‹</button>
+      <span class="range-label" id="range-label">—</span>
+      <button class="btn" id="range-next" title="Periodo siguiente">›</button>
+    </div>
+    <button class="btn" id="range-latest" title="Termina el rango en el último dato guardado">⇥ Últimos datos</button>
+    <button class="btn" id="range-now">Ahora</button>
+    <button class="btn btn-refresh" onclick="loadAll()">↺ Actualizar</button>
+  </div>
+
+  <div class="config-bar">
+    <label style="font-size:.78rem;color:var(--muted)">API</label>
+    <input id="api-input" type="text" value="" placeholder="misma dirección del dashboard"/>
+    <label style="font-size:.78rem;color:var(--muted)">Clave</label>
+    <input id="api-key-input" type="password" value="" placeholder="X-API-Key (si el servidor la exige)" autocomplete="off"/>
+  </div>
+
+  <!-- ── TOP: RING + KPI GRID ──────────────────────────────────────── -->
+  <div class="top-section" style="margin-top:16px">
+
+    <!-- Score ring -->
+    <div class="score-ring-card">
+      <h3>Score Fatiga</h3>
+      <div class="ring-wrap">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#252836" stroke-width="10"/>
+          <circle id="ring-progress" cx="60" cy="60" r="50" fill="none"
+                  stroke="#6c7fff" stroke-width="10"
+                  stroke-dasharray="314" stroke-dashoffset="314"
+                  stroke-linecap="round"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-score" id="ring-score" style="color:#6c7fff">—</span>
+          <span class="ring-label">/ 100</span>
+        </div>
+      </div>
+      <div class="score-state" id="score-state">Sin datos</div>
+    </div>
+
+    <!-- KPI grid -->
+    <div class="kpi-grid">
+      <div class="kpi" style="--kpi-color:var(--accent)">
+        <div class="kpi-label">FC actual</div>
+        <div class="kpi-value" id="k-bpm">—</div>
+        <div class="kpi-sub" id="k-bpm-t"></div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--purple)">
+        <div class="kpi-label">HRV ~ RMSSD</div>
+        <div class="kpi-value" id="k-hrv">—</div>
+        <div class="kpi-sub">ms aprox.</div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--green)">
+        <div class="kpi-label">Sueño</div>
+        <div class="kpi-value" id="k-sleep">—</div>
+        <div class="kpi-sub" id="k-sleep-t">objetivo: 7 h 30 m</div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--yellow)">
+        <div class="kpi-label">Despertares</div>
+        <div class="kpi-value" id="k-wake">—</div>
+        <div class="kpi-sub" id="k-wake-t">esta noche</div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--accent2)">
+        <div class="kpi-label">FC reposo</div>
+        <div class="kpi-value" id="k-rhr">—</div>
+        <div class="kpi-sub">BPM mín. SLEEPING</div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--purple)">
+        <div class="kpi-label">Estado</div>
+        <div class="kpi-value" id="k-state" style="font-size:1.2rem">—</div>
+        <div class="kpi-sub" id="k-state-t"></div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--green)">
+        <div class="kpi-label">Muestras FC brutas</div>
+        <div class="kpi-value" id="k-raw">—</div>
+        <div class="kpi-sub">en PostgreSQL</div>
+      </div>
+      <div class="kpi" style="--kpi-color:var(--accent)">
+        <div class="kpi-label">Ventanas 1 min</div>
+        <div class="kpi-value" id="k-wins">—</div>
+        <div class="kpi-sub">almacenadas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TIMELINE ──────────────────────────────────────────────────── -->
+  <div class="timeline-card">
+    <h3>Timeline Sueño / Vigilia</h3>
+    <div class="timeline-bar" id="timeline"></div>
+    <div class="timeline-axis" id="tl-axis"></div>
+    <div class="tl-legend">
+      <span><div class="dot" style="background:var(--accent)"></div> Dormido (est.)</span>
+      <span><div class="dot" style="background:var(--yellow)"></div> Despierto</span>
+      <span><div class="dot" style="background:var(--border)"></div> Desconocido</span>
+    </div>
+  </div>
+
+  <!-- ── GRÁFICOS ───────────────────────────────────────────────────── -->
+  <div class="section-title">Señales fisiológicas</div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>FC bruta (promedio <span class="bucket-note">por minuto</span>)</h3>
+      <div class="chart-wrap"><canvas id="chart-raw"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Frecuencia Cardíaca <span class="bucket-note">por minuto</span> (BPM)</h3>
+      <div class="chart-wrap"><canvas id="chart-hr"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>HRV estimado — RMSSD ~(ms)</h3>
+      <div class="chart-wrap"><canvas id="chart-hrv"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Pasos <span class="bucket-note">por minuto</span></h3>
+      <div class="chart-wrap"><canvas id="chart-steps"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Confianza del estado estimado</h3>
+      <div class="chart-wrap"><canvas id="chart-conf"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── RESUMEN SEMANAL ────────────────────────────────────────────── -->
+  <div class="section-title" id="week-title">Resumen del rango</div>
+  <div class="week-card">
+    <h3>Historial diario</h3>
+    <div style="overflow-x:auto">
+      <table id="week-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Sueño</th>
+            <th>Despertares</th>
+            <th>FC reposo</th>
+            <th>HRV ~</th>
+            <th>Pasos</th>
+            <th>Fatiga</th>
+          </tr>
+        </thead>
+        <tbody id="week-body">
+          <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── DIAGNÓSTICO HISTORIAL COMPLETO ─────────────────────────────── -->
+  <div class="section-title">Diagnóstico del historial completo</div>
+  <div class="diag-card">
+    <div class="diag-head">
+      <h3>Cobertura por hora (hora local)</h3>
+      <button class="btn" onclick="loadDiagnostics()">↺ Analizar historial</button>
+    </div>
+    <div class="diag-summary" id="diag-summary">Selecciona un dispositivo…</div>
+    <div style="overflow-x:auto"><div class="heatmap" id="diag-heatmap"></div></div>
+    <div class="tl-legend">
+      <span><div class="dot" style="background:rgba(74,222,128,.75)"></div> Reloj puesto (≥50 min/h)</span>
+      <span><div class="dot" style="background:rgba(251,191,36,.7)"></div> Parcial</span>
+      <span><div class="dot" style="background:rgba(108,127,255,.6)"></div> Solo FC bruta, sin ventanas</span>
+      <span><div class="dot" style="background:var(--surface2)"></div> Sin datos</span>
+      <span><div class="dot" style="box-shadow:inset 0 0 0 2px var(--red)"></div> Con duplicados</span>
+    </div>
+  </div>
+
+  <div class="diag-card">
+    <div class="diag-head"><h3>Detalle por día</h3></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Tiempo con datos</th>
+            <th>Muestras FC</th>
+            <th>Ventanas únicas</th>
+            <th>Sueño según reloj</th>
+            <th>Descartado</th>
+            <th>Sueño de la noche</th>
+          </tr>
+        </thead>
+        <tbody id="diag-body">
+          <tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px">Sin analizar</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted2);margin-top:10px;line-height:1.5">
+      "Sueño según reloj" = minutos que el reloj marcó SLEEPING en el día calendario (entre paréntesis, contando duplicados).
+      "Descartado" = de esos, los que tenían FC media &gt; 100 BPM o &gt; 10 pasos en el minuto.
+      "Sueño de la noche" = sesión principal detectada por el backend entre las 18:00 del día anterior y las 18:00 de ese día.
+      Las muestras FC duplicadas se estiman como el exceso sobre 60 muestras por minuto (1 Hz).
+    </div>
+  </div>
+
+  <div class="diag-card">
+    <div class="diag-head"><h3>Huecos sin datos (&gt; 30 min)</h3></div>
+    <div class="gap-list" id="diag-gaps">—</div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ── Config ───────────────────────────────────────────────── */
+const API = () => (document.getElementById('api-input').value.trim() || defaultApi()).replace(/\/$/, '');
+// FastAPI sirve el dashboard en "/" y en "/dashboard/": la API está en la misma base
+function defaultApi() {
+  return location.href.replace(/[?#].*$/, '').replace(/(dashboard\/)?(index\.html)?$/, '');
+}
+async function apiGet(path) {
+  const key = document.getElementById('api-key-input').value.trim();
+  const r = await fetch(API() + path, { headers: key ? { 'X-API-Key': key } : {} });
+  if (r.status === 401) throw new Error('el servidor exige una clave API válida');
+  if (!r.ok) throw new Error(`HTTP ${r.status} en ${path.split('?')[0]}`);
+  return r.json();
+}
+let device = '';
+let hoursBack = 24;
+let rangeEnd = null;          // null = el rango termina ahora
+let lastSampleAt = null;
+let chartHr = null, chartHrv = null, chartSteps = null, chartConf = null, chartRaw = null;
+let autoRefreshTimer = null;
+
+/* ── Init ─────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.btn[data-h]').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.btn[data-h]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      hoursBack = +b.dataset.h;
+      loadAll();
+    });
+  });
+  document.getElementById('range-prev').addEventListener('click', () => shiftRange(-1));
+  document.getElementById('range-next').addEventListener('click', () => shiftRange(1));
+  document.getElementById('range-now').addEventListener('click', () => { rangeEnd = null; loadAll(); });
+  document.getElementById('range-latest').addEventListener('click', () => {
+    if (lastSampleAt) { rangeEnd = new Date(lastSampleAt); loadAll(); }
+  });
+  document.getElementById('device-select').addEventListener('change', e => {
+    device = e.target.value;
+    loadAll();
+    loadDiagnostics();
+  });
+  const apiInput = document.getElementById('api-input');
+  const keyInput = document.getElementById('api-key-input');
+  apiInput.value = localStorage.getItem('serenity-api') || '';
+  keyInput.value = localStorage.getItem('serenity-api-key') || '';
+  const reconnect = () => {
+    localStorage.setItem('serenity-api', apiInput.value.trim());
+    localStorage.setItem('serenity-api-key', keyInput.value.trim());
+    loadDevices().then(() => { loadAll(); loadDiagnostics(); });
+  };
+  apiInput.addEventListener('change', reconnect);
+  keyInput.addEventListener('change', reconnect);
+  loadDevices().then(() => {
+    if (device) { loadAll(); loadDiagnostics(); }
+  });
+  // Solo se refresca solo cuando el rango termina ahora; semana y mes son muchas peticiones
+  autoRefreshTimer = setInterval(() => {
+    if (device && !rangeEnd && hoursBack <= 72) loadAll();
+  }, 60_000);
+});
+
+function shiftRange(dir) {
+  const end = (rangeEnd || new Date()).getTime() + dir * hoursBack * 3600_000;
+  rangeEnd = end >= Date.now() ? null : new Date(end);
+  loadAll();
+}
+
+// Minutos por punto en los gráficos: con semana o mes no caben 10.000-43.000 puntos
+function bucketMinutes() {
+  if (hoursBack <= 72) return 1;
+  if (hoursBack <= 168) return 10;
+  return 60;
+}
+
+/* ── Load devices ─────────────────────────────────────────── */
+async function loadDevices() {
+  try {
+    const data = await apiGet('/api/devices');
+    const sel = document.getElementById('device-select');
+    const prev = sel.value || device;
+    sel.innerHTML = '<option value="">— seleccionar —</option>';
+    (data.devices || []).forEach(d => {
+      const o = document.createElement('option');
+      o.value = d; o.textContent = d;
+      if (d === prev) o.selected = true;
+      sel.appendChild(o);
+    });
+    // Con 2+ dispositivos antes no elegía ninguno y se quedaba en "Conectando…"
+    if (!device || !(data.devices || []).includes(device)) {
+      if ((data.devices || []).includes('xiaomi-watch2')) device = 'xiaomi-watch2';
+      else if ((data.devices || []).length >= 1) device = data.devices[0];
+      else device = '';
+    }
+    if (device) sel.value = device;
+    setLive(true);
+    setStatus(device ? `Conectado · ${device}` : 'Conectado · elige un dispositivo');
+  } catch (e) {
+    setStatus('⚠ Sin conexión al backend: ' + e.message);
+    setLive(false);
+  }
+}
+
+/* ── Load all data ────────────────────────────────────────── */
+async function loadAll() {
+  if (!device) return;
+  const toDate = rangeEnd || new Date();
+  const fromDate = new Date(toDate.getTime() - hoursBack * 3600_000);
+  const from = fromDate.toISOString(), to = toDate.toISOString();
+  updateRangeLabel(fromDate, toDate);
+  try {
+    // La API devuelve como mucho 5000 ventanas por petición: se piden por tramos de 24 h
+    const chunks = [];
+    for (let t = fromDate.getTime(); t < toDate.getTime(); t += 86_400_000) {
+      const a = new Date(t).toISOString();
+      const b = new Date(Math.min(t + 86_400_000, toDate.getTime())).toISOString();
+      chunks.push(apiGet(`/api/windows?device_id=${enc(device)}&from=${a}&to=${b}&limit=5000`));
+    }
+    const [latest, sum, stats, series, ...winChunks] = await Promise.all([
+      apiGet(`/api/latest?device_id=${enc(device)}`),
+      apiGet(`/api/summary?device_id=${enc(device)}&days=90`),
+      apiGet(`/api/stats?device_id=${enc(device)}`),
+      apiGet(`/api/samples/series?device_id=${enc(device)}&from=${from}&to=${to}&bucket_seconds=${bucketMinutes() * 60}`),
+      ...chunks,
+    ]);
+    lastSampleAt = stats.last_sample_at;
+    const byId = new Map();
+    winChunks.forEach(c => (c.windows || []).forEach(w => byId.set(w.id, w)));
+    // El backend guarda ventanas repetidas cuando el reloj reenvía lotes
+    const ws = dedupeByMinute([...byId.values()].sort((a, b) => Date.parse(a.t) - Date.parse(b.t)));
+    const pts = bucketWindows(ws, bucketMinutes());
+
+    // daily_summary usa fechas locales; el resumen del rango son los días que toca
+    const fromDay = dayKey(fromDate), toDay = dayKey(toDate);
+    const days = (sum.summary || []).filter(d => d.date >= fromDay && d.date <= toDay);
+
+    updateKpis(latest, { windows: ws, count: ws.length }, stats, { summary: days });
+    updateRing({ summary: days });
+    drawTimeline(pts);
+    drawRawChart(series.points || []);
+    drawHrChart(pts);
+    drawHrvChart(pts.filter(p => p.hrv != null));
+    drawStepsChart(pts);
+    drawConfChart(pts);
+    drawWeekTable(days);
+    document.getElementById('week-title').textContent =
+      `Resumen del rango · ${fmtDay(fromDay)} → ${fmtDay(toDay)}`;
+    const first = stats.first_sample_at ? fmtDateTime(stats.first_sample_at) : '—';
+    const last = stats.last_sample_at ? fmtDateTime(stats.last_sample_at) : '—';
+    setStatus(`Actualizado ${new Date().toLocaleTimeString('es')} · ${(stats.raw_samples||0)} FC · ${(stats.windows||0)} ventanas · rango datos ${first} → ${last}`);
+    setLive(true);
+  } catch(e) {
+    setStatus('Error: ' + e.message);
+    setLive(false);
+  }
+}
+
+/* ── KPIs ─────────────────────────────────────────────────── */
+function updateKpis(latest, wins, stats, sum) {
+  set('k-bpm', latest.last_bpm ? latest.last_bpm.toFixed(1) : '—');
+  set('k-bpm-t', latest.last_bpm_at ? fmtTime(latest.last_bpm_at) : '');
+  set('k-hrv', latest.last_hrv ? latest.last_hrv.toFixed(1) : '—');
+  const ws = wins.windows || [];
+  // Sumar todos los minutos SLEEPING del rango mezclaba varias noches y reposo diurno
+  const night = (sum?.summary || []).find(d => d.sleep_min != null);
+  set('k-sleep', night ? fmtMin(night.sleep_min) : '—');
+  set('k-sleep-t', night ? `noche del ${fmtDay(night.date)} · objetivo 7h 30m` : 'sin noche detectada');
+  set('k-wake', night?.awakenings ?? '—');
+  set('k-wake-t', night ? `noche del ${fmtDay(night.date)}` : '');
+  const sleepHrs = ws.filter(w => w.state === 'SLEEPING' && w.min_hr);
+  const rhr = sleepHrs.length ? Math.min(...sleepHrs.map(w => w.min_hr)) : null;
+  set('k-rhr', rhr ? rhr.toFixed(1) : '—');
+  const st = latest.last_sleep_state;
+  set('k-state', st === 'SLEEPING' ? '😴' : st === 'AWAKE' ? '👁' : '❓');
+  set('k-state-t', st === 'SLEEPING' ? 'Durmiendo' : st === 'AWAKE' ? 'Despierto' : st || '—');
+  set('k-raw', stats?.raw_samples ?? latest.raw_sample_count ?? '—');
+  set('k-wins', stats?.windows ?? latest.window_count ?? wins.count ?? '—');
+}
+
+/* ── Fatigue ring ─────────────────────────────────────────── */
+function updateRing(sum) {
+  const day = (sum.summary || [])[0];
+  const score = day?.fatigue_score;
+  const label = day?.fatigue_label || 'Sin datos';
+  const col = fatigueColor(score);
+  const pct = score != null ? (score / 100) : 0;
+  const circ = 314;
+  const offset = circ - pct * circ;
+  document.getElementById('ring-progress').setAttribute('stroke', col);
+  document.getElementById('ring-progress').setAttribute('stroke-dashoffset', offset.toFixed(1));
+  document.getElementById('ring-score').textContent = score != null ? score : '—';
+  document.getElementById('ring-score').style.color = col;
+  const ss = document.getElementById('score-state');
+  ss.textContent = label;
+  ss.style.background = col + '22';
+  ss.style.color = col;
+}
+
+/* ── Timeline ─────────────────────────────────────────────── */
+function drawTimeline(windows) {
+  const tl = document.getElementById('timeline');
+  const ax = document.getElementById('tl-axis');
+  tl.innerHTML = '';
+  ax.innerHTML = '';
+  if (!windows.length) {
+    tl.innerHTML = '<span style="color:var(--muted);font-size:.75rem;padding:4px 8px">Sin datos</span>';
+    return;
+  }
+  const step = Math.max(1, Math.floor(windows.length / 8));
+  windows.forEach((w, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'tl-seg ' + (w.state || 'UNKNOWN');
+    const slept = w.n > 1 ? ` · ${w.sleepMin}/${w.n} min dormido` : '';
+    seg.dataset.tip = `${fmtAxis(w.t)} · ${w.state}${slept} · ${w.avg_hr?.toFixed(0) ?? '—'} BPM`;
+    tl.appendChild(seg);
+  });
+  // Axis labels
+  for (let i = 0; i < windows.length; i += step) {
+    const span = document.createElement('span');
+    span.textContent = fmtAxis(windows[i].t);
+    ax.appendChild(span);
+  }
+  if (windows.length > 0) {
+    const last = document.createElement('span');
+    last.textContent = fmtAxis(windows[windows.length-1].t);
+    ax.appendChild(last);
+  }
+}
+
+function drawRawChart(points) {
+  if (chartRaw) chartRaw.destroy();
+  const ctx = document.getElementById('chart-raw').getContext('2d');
+  const labels = points.map(s => fmtAxis(s.t));
+  const bpm = points.map(s => s.bpm);
+  const min = points.map(s => s.min);
+  const max = points.map(s => s.max);
+  chartRaw = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'BPM promedio/min',
+          data: bpm,
+          borderColor: '#4ade80',
+          backgroundColor: 'rgba(74,222,128,.08)',
+          tension: .2,
+          pointRadius: 0,
+          borderWidth: 1.4,
+          fill: true,
+        },
+        {
+          label: 'Mín',
+          data: min,
+          borderColor: '#64748b',
+          borderDash: [3, 3],
+          tension: .2,
+          pointRadius: 0,
+          borderWidth: 1,
+        },
+        {
+          label: 'Máx',
+          data: max,
+          borderColor: '#f87171',
+          borderDash: [3, 3],
+          tension: .2,
+          pointRadius: 0,
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: chartOpts('BPM'),
+  });
+}
+
+/* ── Charts ───────────────────────────────────────────────── */
+const chartOpts = (ylabel, extra = {}) => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#8892a4', boxWidth: 12, font: { size: 10 } } },
+    tooltip: { backgroundColor: '#1a1d2b', titleColor: '#e2e8f0', bodyColor: '#8892a4',
+                borderColor: '#252836', borderWidth: 1 },
+  },
+  scales: {
+    x: {
+      ticks: { color: '#4a5568', maxTicksLimit: 8, font: { size: 9 } },
+      grid: { color: '#1a1d2b' },
+    },
+    y: {
+      ticks: { color: '#8892a4', font: { size: 9 } },
+      grid: { color: '#1a1d2b' },
+      title: { display: true, text: ylabel, color: '#4a5568', font: { size: 9 } },
+    },
+  },
+  ...extra,
+});
+
+function drawHrChart(windows) {
+  const labels = windows.map(w => fmtAxis(w.t));
+  const avg  = windows.map(w => w.avg_hr);
+  const min  = windows.map(w => w.min_hr);
+  const max  = windows.map(w => w.max_hr);
+  const sleeping = windows.map(w => w.state === 'SLEEPING');
+
+  if (chartHr) chartHr.destroy();
+  const ctx = document.getElementById('chart-hr').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, 'rgba(108,127,255,.35)');
+  grad.addColorStop(1, 'rgba(108,127,255,.0)');
+
+  chartHr = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'FC media', data: avg, borderColor: '#6c7fff', backgroundColor: grad,
+          tension: .35, pointRadius: 0, fill: true, borderWidth: 1.5 },
+        { label: 'Mín', data: min, borderColor: '#4ade80', borderDash: [3,3],
+          tension: .3, pointRadius: 0, borderWidth: 1 },
+        { label: 'Máx', data: max, borderColor: '#f87171', borderDash: [3,3],
+          tension: .3, pointRadius: 0, borderWidth: 1 },
+      ],
+    },
+    options: chartOpts('BPM'),
+  });
+}
+
+function drawHrvChart(points) {
+  if (chartHrv) chartHrv.destroy();
+  const ctx = document.getElementById('chart-hrv').getContext('2d');
+  chartHrv = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: points.map(p => fmtAxis(p.t)),
+      datasets: [{
+        label: 'RMSSD ~',
+        data: points.map(p => p.hrv),
+        backgroundColor: points.map(p =>
+          p.state === 'SLEEPING' ? 'rgba(167,139,250,.7)'
+          : p.state === 'AWAKE' ? 'rgba(251,191,36,.5)'
+          : 'rgba(74,85,104,.4)'
+        ),
+        borderRadius: 2,
+        borderWidth: 0,
+      }],
+    },
+    options: chartOpts('ms'),
+  });
+}
+
+function drawStepsChart(windows) {
+  if (chartSteps) chartSteps.destroy();
+  const ctx = document.getElementById('chart-steps').getContext('2d');
+  chartSteps = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: windows.map(w => fmtAxis(w.t)),
+      datasets: [{
+        label: 'Pasos',
+        data: windows.map(w => w.steps || 0),
+        backgroundColor: windows.map(w =>
+          (w.steps || 0) > 0 ? 'rgba(251,191,36,.7)' : 'rgba(42,45,58,.6)'
+        ),
+        borderRadius: 2, borderWidth: 0,
+      }],
+    },
+    options: chartOpts('pasos'),
+  });
+}
+
+function drawConfChart(windows) {
+  if (chartConf) chartConf.destroy();
+  const ctx = document.getElementById('chart-conf').getContext('2d');
+  chartConf = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: windows.map(w => fmtAxis(w.t)),
+      datasets: [{
+        label: 'Confianza',
+        data: windows.map(w => ((w.conf || 0) * 100).toFixed(0)),
+        borderColor: '#4ade80',
+        backgroundColor: 'rgba(74,222,128,.08)',
+        tension: .3, pointRadius: 0, fill: true, borderWidth: 1.5,
+      }],
+    },
+    options: chartOpts('%', { scales: { y: { min: 0, max: 100,
+      ticks: { color: '#8892a4', font: { size: 9 } }, grid: { color: '#1a1d2b' },
+      title: { display: true, text: '%', color: '#4a5568', font: { size: 9 } },
+    }, x: { ticks: { color: '#4a5568', maxTicksLimit: 8, font: { size: 9 } },
+      grid: { color: '#1a1d2b' } } } }),
+  });
+}
+
+/* ── Week table ───────────────────────────────────────────── */
+function drawWeekTable(summary) {
+  const tbody = document.getElementById('week-body');
+  if (!summary.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px">Sin días con resumen en este rango</td></tr>';
+    return;
+  }
+  const rows = [...summary].reverse().map(d => `
+    <tr>
+      <td><strong>${d.date ? fmtDay(d.date) : '—'}</strong></td>
+      <td>${d.sleep_min != null ? fmtMin(d.sleep_min) : '—'}</td>
+      <td>${d.awakenings ?? '—'}</td>
+      <td>${d.resting_hr?.toFixed(1) ?? '—'} <span style="color:var(--muted2);font-size:.7rem">BPM</span></td>
+      <td>${d.hrv_avg?.toFixed(1) ?? '—'} <span style="color:var(--muted2);font-size:.7rem">ms</span></td>
+      <td>${d.steps?.toLocaleString('es') ?? '—'}</td>
+      <td>${fatigueBadge(d.fatigue_score, d.fatigue_label)}</td>
+    </tr>
+  `);
+  const avg = f => {
+    const v = summary.map(d => d[f]).filter(x => x != null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const nights = summary.filter(d => d.sleep_min != null).length;
+  if (summary.length > 1) {
+    const sleep = avg('sleep_min'), wake = avg('awakenings'), rhr = avg('resting_hr'),
+          hrv = avg('hrv_avg'), steps = avg('steps');
+    rows.push(`
+    <tr style="background:var(--surface2)">
+      <td><strong>Promedio</strong> <span style="color:var(--muted2);font-size:.7rem">${nights} noches</span></td>
+      <td><strong>${sleep != null ? fmtMin(Math.round(sleep)) : '—'}</strong></td>
+      <td>${wake != null ? wake.toFixed(1) : '—'}</td>
+      <td>${rhr != null ? rhr.toFixed(1) : '—'} <span style="color:var(--muted2);font-size:.7rem">BPM</span></td>
+      <td>${hrv != null ? hrv.toFixed(1) : '—'} <span style="color:var(--muted2);font-size:.7rem">ms</span></td>
+      <td>${steps != null ? Math.round(steps).toLocaleString('es') : '—'}</td>
+      <td></td>
+    </tr>`);
+  }
+  tbody.innerHTML = rows.join('');
+}
+
+function fatigueBadge(score, label) {
+  if (score == null) return `<span class="badge badge-gray">Sin datos</span>`;
+  if (score <= 30) return `<span class="badge badge-green">${label || score}</span>`;
+  if (score <= 60) return `<span class="badge badge-yellow">${label || score}</span>`;
+  return `<span class="badge badge-red">${label || score}</span>`;
+}
+
+/* ── Diagnóstico del historial completo ─────────────────────── */
+async function loadDiagnostics() {
+  if (!device) return;
+  const summaryEl = document.getElementById('diag-summary');
+  const body = document.getElementById('diag-body');
+  const heat = document.getElementById('diag-heatmap');
+  const gapsEl = document.getElementById('diag-gaps');
+  summaryEl.textContent = 'Analizando todo el historial…';
+  try {
+    const stats = await apiGet(`/api/stats?device_id=${enc(device)}`);
+    if (!stats.first_sample_at) {
+      summaryEl.textContent = 'Sin datos almacenados para este dispositivo.';
+      heat.innerHTML = ''; gapsEl.textContent = '—';
+      body.innerHTML = '<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px">Sin datos</td></tr>';
+      return;
+    }
+    const first = new Date(stats.first_sample_at), last = new Date(stats.last_sample_at);
+    const start = new Date(first.getFullYear(), first.getMonth(), first.getDate());
+    const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    const dayStarts = [];
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) dayStarts.push(new Date(d));
+
+    // Ventanas por día para no chocar con el límite de 5000 filas por petición
+    const [series, summary, ...winDays] = await Promise.all([
+      apiGet(`/api/samples/series?device_id=${enc(device)}&from=${start.toISOString()}&to=${end.toISOString()}&bucket_seconds=60`),
+      apiGet(`/api/summary?device_id=${enc(device)}&days=90`),
+      ...dayStarts.map(d => {
+        const to = new Date(d); to.setDate(to.getDate() + 1);
+        return apiGet(`/api/windows?device_id=${enc(device)}&from=${d.toISOString()}&to=${to.toISOString()}&limit=5000`);
+      }),
+    ]);
+
+    const hours = new Map();
+    const hourOf = ms => {
+      const d = new Date(ms);
+      const k = dayKey(d) + '|' + d.getHours();
+      if (!hours.has(k)) hours.set(k, { cov: 0, rawMin: 0, rawN: 0, rawDup: 0, win: 0, winU: 0, sleepAll: 0, sleepU: 0, sleepBad: 0 });
+      return hours.get(k);
+    };
+    const minutes = new Set();
+
+    for (const p of series.points || []) {
+      if (!p.t || !p.n) continue;
+      const ms = Date.parse(p.t);
+      const h = hourOf(ms);
+      h.rawMin++; h.rawN += p.n; h.rawDup += Math.max(0, p.n - 60);
+      minutes.add(Math.floor(ms / 60000));
+    }
+
+    const byId = new Map();
+    winDays.forEach(r => (r.windows || []).forEach(w => byId.set(w.id, w)));
+    const seen = new Set();
+    [...byId.values()].sort((a, b) => Date.parse(a.t) - Date.parse(b.t)).forEach(w => {
+      const ms = Date.parse(w.t);
+      const m = Math.floor(ms / 60000);
+      const h = hourOf(ms);
+      // device_state solo existe tras la migración; antes, state es la etiqueta del reloj
+      const sleeping = (w.device_state ?? w.state) === 'SLEEPING';
+      h.win++;
+      if (sleeping) h.sleepAll++;
+      if (seen.has(m)) return;
+      seen.add(m);
+      h.winU++;
+      minutes.add(m);
+      if (sleeping) {
+        h.sleepU++;
+        if (w.state !== 'SLEEPING' || (w.avg_hr || 0) > 100 || (w.steps || 0) > 10) h.sleepBad++;
+      }
+    });
+    const nightSleep = new Map((summary.summary || []).map(s => [s.date, s.sleep_min]));
+    minutes.forEach(m => hourOf(m * 60000).cov++);
+
+    const fields = ['cov', 'rawMin', 'rawN', 'rawDup', 'win', 'winU', 'sleepAll', 'sleepU', 'sleepBad'];
+    const days = dayStarts.map(d => {
+      const key = dayKey(d);
+      const agg = { key, hours: [] };
+      fields.forEach(f => agg[f] = 0);
+      for (let hr = 0; hr < 24; hr++) {
+        const h = hours.get(key + '|' + hr) || null;
+        agg.hours.push(h);
+        if (h) fields.forEach(f => agg[f] += h[f]);
+      }
+      return agg;
+    });
+
+    const sorted = [...minutes].sort((a, b) => a - b);
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const diff = sorted[i] - sorted[i - 1];
+      if (diff > 30) gaps.push({ from: sorted[i - 1] * 60000, to: sorted[i] * 60000, min: diff });
+    }
+
+    const tot = {};
+    fields.forEach(f => tot[f] = days.reduce((s, d) => s + d[f], 0));
+    const daysWithData = days.filter(d => d.cov > 0).length;
+    summaryEl.innerHTML =
+      `Datos desde <b>${fmtDateTime(stats.first_sample_at)}</b> hasta <b>${fmtDateTime(stats.last_sample_at)}</b> · ` +
+      `<b>${days.length}</b> días en el rango, <b>${daysWithData}</b> con datos · ` +
+      `<b>${fmtMin(tot.cov)}</b> con datos · <b>${gaps.length}</b> huecos &gt; 30 min<br>` +
+      `Ventanas: <b>${tot.win}</b> guardadas, <b>${tot.winU}</b> únicas → ` +
+      `<span class="${tot.win > tot.winU ? 'num-bad' : ''}">${tot.win - tot.winU} duplicadas</span> · ` +
+      `Muestras FC: <b>${tot.rawN.toLocaleString('es')}</b>, ` +
+      `<span class="${tot.rawDup ? 'num-bad' : ''}">~${tot.rawDup.toLocaleString('es')} duplicadas</span> · ` +
+      `Sueño marcado por el reloj: <span class="${tot.sleepAll > tot.sleepU ? 'num-bad' : ''}">${fmtMin(tot.sleepAll)}</span> con duplicados vs <b>${fmtMin(tot.sleepU)}</b> sin duplicados ` +
+      `(de ellos <span class="${tot.sleepBad ? 'num-bad' : ''}">${fmtMin(tot.sleepBad)}</span> descartados) · ` +
+      `Noches detectadas: <b>${[...nightSleep.values()].filter(v => v != null).length}</b>`;
+
+    let html = '<div></div>';
+    for (let hr = 0; hr < 24; hr++) html += `<div class="hm-hour">${String(hr).padStart(2, '0')}</div>`;
+    days.forEach(d => {
+      html += `<div class="hm-label">${fmtDay(d.key)}</div>`;
+      d.hours.forEach((h, hr) => {
+        const hh = String(hr).padStart(2, '0');
+        if (!h || !h.cov) {
+          html += `<div class="hm-cell" data-tip="${hh}:00 · sin datos"></div>`;
+          return;
+        }
+        let cls = h.cov >= 50 ? 'full' : 'partial';
+        if (!h.winU) cls = 'raw-only';
+        const dupW = h.win - h.winU;
+        if (dupW > 0 || h.rawDup > 0) cls += ' dup';
+        const tip = [
+          `${fmtDay(d.key)} ${hh}:00`,
+          `Minutos con datos: ${h.cov}/60`,
+          `FC bruta: ${h.rawMin} min, ${h.rawN} muestras (~${h.rawDup} dup.)`,
+          `Ventanas: ${h.winU} únicas, ${dupW} duplicadas`,
+          `SLEEPING según reloj: ${h.sleepU} min (${h.sleepAll} con dup., ${h.sleepBad} descartados)`,
+        ].join('\n');
+        html += `<div class="hm-cell ${cls}" data-tip="${tip}"></div>`;
+      });
+    });
+    heat.innerHTML = html;
+
+    body.innerHTML = days.map(d => {
+      const status = d.cov === 0 ? '<span class="badge badge-gray">Sin reloj</span>'
+        : d.cov >= 1200 ? '<span class="badge badge-green">Completo</span>'
+        : '<span class="badge badge-yellow">Parcial</span>';
+      const dupW = d.win - d.winU;
+      const night = nightSleep.get(d.key);
+      return `
+        <tr>
+          <td><strong>${fmtDay(d.key)}</strong></td>
+          <td>${status}</td>
+          <td>${fmtMin(d.cov)}</td>
+          <td>${d.rawN.toLocaleString('es')} ${d.rawDup ? `<span class="num-bad">(~${d.rawDup.toLocaleString('es')} dup.)</span>` : ''}</td>
+          <td>${d.winU} ${dupW ? `<span class="num-bad">(+${dupW} dup.)</span>` : ''}</td>
+          <td>${fmtMin(d.sleepU)} ${d.sleepAll > d.sleepU ? `<span class="num-bad">(${fmtMin(d.sleepAll)})</span>` : ''}</td>
+          <td class="${d.sleepBad ? 'num-bad' : ''}">${fmtMin(d.sleepBad)}</td>
+          <td><strong>${night != null ? fmtMin(night) : '—'}</strong></td>
+        </tr>`;
+    }).join('');
+
+    gapsEl.innerHTML = gaps.length
+      ? gaps.map(g => `<div>⛔ ${fmtDateTime(new Date(g.from).toISOString())} → ${fmtDateTime(new Date(g.to).toISOString())} · <b style="color:var(--text)">${fmtMin(g.min)}</b> sin datos</div>`).join('')
+      : 'Sin huecos mayores a 30 minutos.';
+  } catch (e) {
+    summaryEl.textContent = 'Error analizando historial: ' + e.message;
+  }
+}
+
+/* ── Rango ────────────────────────────────────────────────── */
+function updateRangeLabel(fromDate, toDate) {
+  const opts = hoursBack <= 24
+    ? { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+    : { weekday: 'short', day: 'numeric', month: 'short' };
+  document.getElementById('range-label').textContent =
+    `${fromDate.toLocaleString('es', opts)} → ${rangeEnd ? toDate.toLocaleString('es', opts) : 'ahora'}`;
+  document.getElementById('range-next').disabled = !rangeEnd;
+  document.getElementById('range-now').disabled = !rangeEnd;
+  const m = bucketMinutes();
+  const note = m === 1 ? 'por minuto' : m === 60 ? 'por hora' : `cada ${m} min`;
+  document.querySelectorAll('.bucket-note').forEach(el => el.textContent = note);
+}
+
+function bucketWindows(ws, minutes) {
+  if (minutes <= 1) return ws;
+  const size = minutes * 60_000;
+  const buckets = new Map();
+  for (const w of ws) {
+    const k = Math.floor(Date.parse(w.t) / size);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(w);
+  }
+  const mean = (it, f) => {
+    const v = it.map(x => x[f]).filter(x => x != null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([k, it]) => {
+    const counts = {};
+    it.forEach(x => { const s = x.state || 'UNKNOWN'; counts[s] = (counts[s] || 0) + 1; });
+    const mins = it.map(x => x.min_hr).filter(x => x != null);
+    const maxs = it.map(x => x.max_hr).filter(x => x != null);
+    return {
+      t: new Date(k * size).toISOString(),
+      avg_hr: mean(it, 'avg_hr'),
+      min_hr: mins.length ? Math.min(...mins) : null,
+      max_hr: maxs.length ? Math.max(...maxs) : null,
+      hrv: mean(it, 'hrv'),
+      steps: it.reduce((s, x) => s + (x.steps || 0), 0),
+      conf: mean(it, 'conf'),
+      state: Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0],
+      n: it.length,
+      sleepMin: counts.SLEEPING || 0,
+    };
+  });
+}
+
+/* ── Utils ────────────────────────────────────────────────── */
+function fmtAxis(iso) {
+  if (hoursBack <= 24) return fmtTime(iso);
+  const d = new Date(iso);
+  return d.toLocaleDateString('es', { day: 'numeric', month: 'short' }) + ' ' + fmtTime(iso);
+}
+function dedupeByMinute(items) {
+  const seen = new Set();
+  return items.filter(x => {
+    const m = Math.floor(Date.parse(x.t) / 60000);
+    if (seen.has(m)) return false;
+    seen.add(m);
+    return true;
+  });
+}
+function dayKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function fmtDay(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+function set(id, val) { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; }
+function setStatus(msg) { document.getElementById('last-update').textContent = msg; }
+function setLive(on) {
+  document.getElementById('dot').className = 'status-dot' + (on ? ' live' : '');
+}
+function enc(s) { return encodeURIComponent(s); }
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDateTime(iso) {
+  return new Date(iso).toLocaleString('es', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+function fmtMin(m) {
+  if (!m) return '0 m';
+  const h = Math.floor(m/60), mm = m%60;
+  return h > 0 ? `${h}h ${mm}m` : `${mm}m`;
+}
+function fatigueColor(s) {
+  if (s == null) return '#4a5568';
+  if (s <= 30) return '#4ade80';
+  if (s <= 60) return '#fbbf24';
+  return '#f87171';
+}
+</script>
+</body>
+</html>

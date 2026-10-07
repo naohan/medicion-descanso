@@ -1,0 +1,67 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+ENV/
+
+# Variables de entorno (secretos)
+.env
+.env.*
+!.env.example
+
+# Copias de la base de datos (contienen datos de salud)
+*.dump
+*.sql
+*.backup
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# IDEs y editores
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs y temporales
+*.log
+*.tmp
+*.temp
+.cache/
+
+# Bases de datos locales (si se usan SQLite)
+*.db
+*.sqlite
+*.sqlite3

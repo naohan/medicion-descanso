@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs y editores
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Variables de entorno (por si se añaden configs locales)
+.env
+.env.*
+!.env.example
+
+# Logs y temporales
+*.log
+*.tmp
+*.temp
+.cache/
+
+# Dependencias / build (por si se migra a un bundler)
+node_modules/
+dist/
+build/
+.parcel-cache/
+.vite/
